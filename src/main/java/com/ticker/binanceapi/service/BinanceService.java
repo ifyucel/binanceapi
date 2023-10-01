@@ -23,4 +23,17 @@ public class BinanceService {
             return null;
         }
     }
+
+    public String getAllPrices() {
+        Request request = new Request.Builder()
+                .url("https://api.binance.com/api/v3/ticker/price")
+                .build();
+
+        try (Response response = client.newCall(request).execute()) {
+            return response.body().string();
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
 }
