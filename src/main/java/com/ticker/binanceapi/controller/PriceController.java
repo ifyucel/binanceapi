@@ -28,4 +28,10 @@ public class PriceController {
     public String getAllPrices() {
         return binanceService.getAllPrices();
     }
+
+    @GetMapping("/saveAll")
+    public String saveAllPrices() {
+        binanceService.saveAllPrices();
+        return "All prices saved successfully!";
+    }
 }
