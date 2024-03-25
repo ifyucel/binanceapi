@@ -38,4 +38,9 @@ public class PriceController {
     public List<SymbolInfo> getAllSymbols() throws IOException {
         return binanceService.getAllSymbols();
     }
+
+    @GetMapping("/inDetails/{symbol}")
+    public String getPriceInDetails(@PathVariable String symbol) {
+        return binanceService.combinePriceDetails(symbol);
+    }
 }

@@ -78,4 +78,46 @@ public class BinanceService {
             return exchangeInfo.getSymbols();
         }
     }
+
+    public String getAvgPrice(String symbol) {
+        Request request = new Request.Builder()
+                .url("https://api.binance.com/api/v3/avgPrice?symbol=" + symbol)
+                .build();
+
+        try (Response response = client.newCall(request).execute()) {
+            return response.body().string();
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public String getTickerPrice(String symbol) {
+        Request request = new Request.Builder()
+                .url("https://api.binance.com/api/v3/ticker/price?symbol=" + symbol)
+                .build();
+
+        try (Response response = client.newCall(request).execute()) {
+            return response.body().string();
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public String combinePriceDetails(String symbol) {
+        String avgPriceJson = getAvgPrice(symbol);
+        String tickerPriceJson = getTickerPrice(symbol);
+
+        AvgPrice avgPrice = gson.fromJson(avgPriceJson, AvgPrice.class);
+        TickerPrice tickerPrice = gson.fromJson(tickerPriceJson, TickerPrice.class);
+
+        CombinedPriceDetails combinedDetails = new CombinedPriceDetails();
+        combinedDetails.setSymbol(symbol);
+        combinedDetails.setAvgPrice(avgPrice.getPrice());
+        combinedDetails.setTickerPrice(tickerPrice.getLastPrice()); // Assuming you want the last price from ticker
+
+        return gson.toJson(combinedDetails);
+    }
+
 }
