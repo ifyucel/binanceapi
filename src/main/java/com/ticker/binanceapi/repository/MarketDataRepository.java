@@ -4,5 +4,5 @@ import org.springframework.stereotype.Repository;
 import com.ticker.binanceapi.model.MarketDataModel;
 
 @Repository
-public interface MarketDataRepository extends JpaRepository<MarketDataModel, String> {
+public interface MarketDataRepository extends JpaRepository<MarketDataModel, Long> {
 }
