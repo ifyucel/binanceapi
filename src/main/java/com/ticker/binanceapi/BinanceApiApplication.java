@@ -10,3 +10,4 @@ public class BinanceApiApplication {
 		SpringApplication.run(BinanceApiApplication.class, args);
 	}
 }
+
