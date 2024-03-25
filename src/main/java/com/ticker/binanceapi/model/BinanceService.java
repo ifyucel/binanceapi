@@ -1,8 +1,11 @@
 package com.ticker.binanceapi.model;
 
 import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.ticker.binanceapi.repository.MarketDataRepository;
+import jakarta.transaction.Transactional;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -10,114 +13,51 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
-import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
 @Service
+@Transactional
 public class BinanceService {
 
     private OkHttpClient client = new OkHttpClient();
-    private final Gson gson = new Gson();
+    private final Gson gson = new GsonBuilder().serializeNulls().create();
+
     @Autowired
     private MarketDataRepository marketDataRepository;
 
-    public String getCurrentPrice(String symbol) {
-        Request request = new Request.Builder()
-                .url("https://api.binance.com/api/v3/ticker/price?symbol=" + symbol)
-                .build();
-
-        try (Response response = client.newCall(request).execute()) {
-            return response.body().string();
-        } catch (IOException e) {
-            e.printStackTrace();
-            return null;
-        }
-    }
-
-    public String getAllPrices() {
-        Request request = new Request.Builder()
-                .url("https://api.binance.com/api/v3/ticker/price")
-                .build();
-
-        try (Response response = client.newCall(request).execute()) {
-            return response.body().string();
-        } catch (IOException e) {
-            e.printStackTrace();
-            return null;
-        }
-    }
-
-    public void savePrice(MarketDataModel marketDataModel) {
-        marketDataModel.setTimestamp(new Date());
-        marketDataRepository.save(marketDataModel);
-    }
-
-    public void saveAllPrices() {
-        String allPricesJson = getAllPrices();
-        Type listType = new TypeToken<ArrayList<MarketDataResponse>>(){}.getType();
-        List<MarketDataResponse> allPrices = new Gson().fromJson(allPricesJson, listType);
-        for (MarketDataResponse marketDataResponse : allPrices) {
-            MarketDataModel marketDataModel = new MarketDataModel();
-            marketDataModel.setSymbol(marketDataResponse.getSymbol());
-            marketDataModel.setPrice(marketDataResponse.getPrice());
-            savePrice(marketDataModel);
-        }
-    }
-
-    public List<SymbolInfo> getAllSymbols() throws IOException {
-        Request request = new Request.Builder()
-                .url("https://api.binance.com/api/v3/exchangeInfo")
-                .build();
+    public List<String> fetchAllSymbols() throws IOException {
+        String url = "https://api.binance.com/api/v3/ticker/price";
+        Request request = new Request.Builder().url(url).build();
 
         try (Response response = client.newCall(request).execute()) {
             if (!response.isSuccessful()) throw new IOException("Unexpected code " + response);
             String responseData = response.body().string();
-            ExchangeInfo exchangeInfo = gson.fromJson(responseData, ExchangeInfo.class);
-            return exchangeInfo.getSymbols();
+            JsonArray jsonArray = gson.fromJson(responseData, JsonArray.class);
+            List<String> symbols = new ArrayList<>();
+            for (JsonElement element : jsonArray) {
+                symbols.add(element.getAsJsonObject().get("symbol").getAsString());
+            }
+            return symbols;
         }
     }
 
-    public String getAvgPrice(String symbol) {
-        Request request = new Request.Builder()
-                .url("https://api.binance.com/api/v3/avgPrice?symbol=" + symbol)
-                .build();
+    public MarketDataModel fetchAndSaveMarketData(String symbol) {
+        String url = "https://api.binance.com/api/v3/ticker?symbol=" + symbol;
+        Request request = new Request.Builder().url(url).build();
 
         try (Response response = client.newCall(request).execute()) {
-            return response.body().string();
+            if (!response.isSuccessful()) throw new IOException("Unexpected code " + response);
+            String responseData = response.body().string();
+            MarketDataModel marketData = gson.fromJson(responseData, MarketDataModel.class);
+            marketData.setTimestamp(new Date());
+            marketDataRepository.save(marketData);
+            return marketData;
         } catch (IOException e) {
             e.printStackTrace();
             return null;
         }
-    }
-
-    public String getTickerPrice(String symbol) {
-        Request request = new Request.Builder()
-                .url("https://api.binance.com/api/v3/ticker/price?symbol=" + symbol)
-                .build();
-
-        try (Response response = client.newCall(request).execute()) {
-            return response.body().string();
-        } catch (IOException e) {
-            e.printStackTrace();
-            return null;
-        }
-    }
-
-    public String combinePriceDetails(String symbol) {
-        String avgPriceJson = getAvgPrice(symbol);
-        String tickerPriceJson = getTickerPrice(symbol);
-
-        AvgPrice avgPrice = gson.fromJson(avgPriceJson, AvgPrice.class);
-        TickerPrice tickerPrice = gson.fromJson(tickerPriceJson, TickerPrice.class);
-
-        CombinedPriceDetails combinedDetails = new CombinedPriceDetails();
-        combinedDetails.setSymbol(symbol);
-        combinedDetails.setAvgPrice(avgPrice.getPrice());
-        combinedDetails.setTickerPrice(tickerPrice.getLastPrice()); // Assuming you want the last price from ticker
-
-        return gson.toJson(combinedDetails);
     }
 
 }
