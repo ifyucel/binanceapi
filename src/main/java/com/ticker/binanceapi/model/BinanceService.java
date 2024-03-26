@@ -38,9 +38,13 @@ public class BinanceService {
             JsonArray jsonArray = gson.fromJson(responseData, JsonArray.class);
             List<String> symbols = new ArrayList<>();
             for (JsonElement element : jsonArray) {
-                symbols.add(element.getAsJsonObject().get("symbol").getAsString());
+                String symbol = element.getAsJsonObject().get("symbol").getAsString();
+                if (symbol.endsWith("USDT")) {
+                    symbols.add(symbol);
+                }
             }
-            return symbols;
+            // Limit to the first 50 symbols
+            return symbols.stream().limit(100).collect(Collectors.toList());
         }
     }
 
@@ -69,6 +73,4 @@ public class BinanceService {
             return null;
         }
     }
-
-
 }
