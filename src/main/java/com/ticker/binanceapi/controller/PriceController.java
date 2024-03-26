@@ -16,18 +16,18 @@ public class PriceController {
     @Autowired
     private BinanceService binanceService;
 
-    @GetMapping("/api/price/save/{symbol}")
-    public MarketDataModel saveMarketData(@PathVariable String symbol) {
-        return binanceService.fetchAndSaveMarketData(symbol);
+    // Updated method to accept a list of symbols
+    @GetMapping("/api/price/save/{symbols}")
+    public List<MarketDataModel> saveMarketData(@PathVariable List<String> symbols) {
+        return binanceService.fetchAndSaveMarketData(symbols);
     }
 
     @GetMapping("/api/price/save/all")
     public String saveMarketDataForAllSymbols() {
         try {
             List<String> symbols = binanceService.fetchAllSymbols();
-            for (String symbol : symbols) {
-                binanceService.fetchAndSaveMarketData(symbol);
-            }
+            // Pass the list of symbols to the updated method
+            binanceService.fetchAndSaveMarketData(symbols);
             return "Market data for all symbols has been saved successfully.";
         } catch (IOException e) {
             e.printStackTrace();

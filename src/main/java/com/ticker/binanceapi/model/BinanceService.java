@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -43,21 +44,31 @@ public class BinanceService {
         }
     }
 
-    public MarketDataModel fetchAndSaveMarketData(String symbol) {
-        String url = "https://api.binance.com/api/v3/ticker?symbol=" + symbol;
+    public List<MarketDataModel> fetchAndSaveMarketData(List<String> symbols) {
+        String url = "https://api.binance.com/api/v3/ticker?symbols=[";
+        String encodedSymbols = symbols.stream()
+                .map(symbol -> "\"" + symbol + "\"")
+                .collect(Collectors.joining(","));
+        url += encodedSymbols + "]";
         Request request = new Request.Builder().url(url).build();
 
         try (Response response = client.newCall(request).execute()) {
             if (!response.isSuccessful()) throw new IOException("Unexpected code " + response);
             String responseData = response.body().string();
-            MarketDataModel marketData = gson.fromJson(responseData, MarketDataModel.class);
-            marketData.setTimestamp(new Date());
-            marketDataRepository.save(marketData);
-            return marketData;
+            JsonArray jsonArray = gson.fromJson(responseData, JsonArray.class);
+            List<MarketDataModel> marketDataList = new ArrayList<>();
+            for (JsonElement element : jsonArray) {
+                MarketDataModel marketData = gson.fromJson(element, MarketDataModel.class);
+                marketData.setTimestamp(new Date());
+                marketDataRepository.save(marketData);
+                marketDataList.add(marketData);
+            }
+            return marketDataList;
         } catch (IOException e) {
             e.printStackTrace();
             return null;
         }
     }
+
 
 }
