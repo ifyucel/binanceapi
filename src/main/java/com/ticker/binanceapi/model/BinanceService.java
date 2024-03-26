@@ -1,9 +1,6 @@
 package com.ticker.binanceapi.model;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
+import com.google.gson.*;
 import com.ticker.binanceapi.repository.MarketDataRepository;
 import jakarta.transaction.Transactional;
 import okhttp3.OkHttpClient;
@@ -13,6 +10,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -43,34 +42,45 @@ public class BinanceService {
                     symbols.add(symbol);
                 }
             }
-            // Limit to the first 50 symbols
-            return symbols.stream().limit(100).collect(Collectors.toList());
+            // Count and print the number of symbols ending with "USDT"
+            long count = symbols.stream().filter(s -> s.endsWith("USDT")).count();
+            System.out.println("Total number of symbols ending with USDT: " + count);
+
+            return symbols;
         }
     }
 
     public List<MarketDataModel> fetchAndSaveMarketData(List<String> symbols) {
-        String url = "https://api.binance.com/api/v3/ticker?symbols=[";
-        String encodedSymbols = symbols.stream()
-                .map(symbol -> "\"" + symbol + "\"")
-                .collect(Collectors.joining(","));
-        url += encodedSymbols + "]";
-        Request request = new Request.Builder().url(url).build();
+        List<MarketDataModel> marketDataList = new ArrayList<>();
+        int batchSize = 100;
 
-        try (Response response = client.newCall(request).execute()) {
-            if (!response.isSuccessful()) throw new IOException("Unexpected code " + response);
-            String responseData = response.body().string();
-            JsonArray jsonArray = gson.fromJson(responseData, JsonArray.class);
-            List<MarketDataModel> marketDataList = new ArrayList<>();
-            for (JsonElement element : jsonArray) {
-                MarketDataModel marketData = gson.fromJson(element, MarketDataModel.class);
-                marketData.setTimestamp(new Date());
-                marketDataRepository.save(marketData);
-                marketDataList.add(marketData);
+        for (int i = 0; i < symbols.size(); i += batchSize) {
+            int start = i;
+            int end = Math.min(start + batchSize, symbols.size());
+            List<String> batchSymbols = symbols.subList(start, end);
+
+            try {
+                // URL encode the symbols and format them as a JSON array
+                String encodedSymbols = URLEncoder.encode("[\"" + String.join("\",\"", batchSymbols) + "\"]", StandardCharsets.UTF_8.toString());
+                String url = "https://api.binance.com/api/v3/ticker?symbols=" + encodedSymbols;
+
+                Request request = new Request.Builder().url(url).build();
+                Response response = client.newCall(request).execute();
+                if (!response.isSuccessful()) throw new IOException("Unexpected code " + response);
+
+                String responseData = response.body().string();
+                JsonArray jsonArray = gson.fromJson(responseData, JsonArray.class);
+                for (JsonElement element : jsonArray) {
+                    MarketDataModel marketData = gson.fromJson(element, MarketDataModel.class);
+                    marketData.setTimestamp(new Date());
+                    marketDataRepository.save(marketData);
+                    marketDataList.add(marketData);
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+                // Handle the exception as appropriate for your application
             }
-            return marketDataList;
-        } catch (IOException e) {
-            e.printStackTrace();
-            return null;
         }
+        return marketDataList;
     }
 }
